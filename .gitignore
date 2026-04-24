@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+*.png
+*.json
+!Manifest.toml
+!Project.toml
+.DS_Store
