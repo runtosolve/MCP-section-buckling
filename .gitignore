@@ -6,3 +6,4 @@ __pycache__/
 !Manifest.toml
 !Project.toml
 .DS_Store
+*.svg
