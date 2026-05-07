@@ -94,17 +94,8 @@ class SvgGeometry(BaseModel):
 
 
 class ShapeVisualization(BaseModel):
-    undeformed: ModeShapeCoordinates = Field(
-        description="Undeformed wall centerline coordinates in engineering units"
-    )
-    local_buckling: ModeShapeCoordinates = Field(
-        description="Local buckling mode shape coordinates in engineering units (deformed)"
-    )
-    distortional_buckling: ModeShapeCoordinates = Field(
-        description="Distortional buckling mode shape coordinates in engineering units (deformed)"
-    )
     svg: SvgGeometry = Field(
-        description="Precomputed SVG-ready geometry (Y-flipped, padded viewBox) for direct use in <svg>/<polyline>. Use this when rendering SVG instead of remapping the engineering coordinates yourself."
+        description="Precomputed SVG-ready geometry (Y-flipped, padded viewBox) for direct use in <svg>/<polyline>."
     )
 
 
@@ -138,10 +129,7 @@ class CeeBucklingResult(BaseModel):
     shapes: ShapeVisualization = Field(
         description=(
             "Mode shape data. Use shapes.svg for ALL rendering — it contains "
-            "precomputed, Y-flipped SVG polyline strings ready for direct use in <polyline>. "
-            "The raw X/Y coordinate arrays (shapes.undeformed, shapes.local_buckling, "
-            "shapes.distortional_buckling) are for numerical reference only; "
-            "do NOT use them to render or reconstruct the mode shapes."
+            "precomputed, Y-flipped SVG polyline strings ready for direct use in <polyline>."
         )
     )
     section_properties: SectionProperties = Field(
@@ -291,10 +279,6 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
     ])
 
     return ShapeVisualization(
-        undeformed=ModeShapeCoordinates(X=undeformed_X, Y=undeformed_Y),
-        local_buckling=ModeShapeCoordinates(X=local_X, Y=local_Y),
-        distortional_buckling=ModeShapeCoordinates(
-            X=distortional_X, Y=distortional_Y),
         svg=SvgGeometry(
             viewBox=view_box,
             bounds=bounds,
@@ -313,8 +297,7 @@ Returns critical loads and SVG-ready mode shape geometry.
 SVG_RENDERING_INSTRUCTIONS = """\
 ## Rendering mode shapes
 
-ALWAYS render mode shapes using `shapes.svg`. Never manually remap or
-reinterpret the raw engineering coordinates — the server has already handled
+ALWAYS render mode shapes using `shapes.svg`. The server has already handled
 the Y-axis flip, uniform scaling, padding, and centering.
 
 ### Minimal standalone SVG (auto-fits the section)
@@ -356,20 +339,6 @@ bounding box of all three polylines, NOT the section centroid. So
 `translate(cx, cy)` places that center at `(cx, cy)` with no offset math.
 Use `shapes.svg.bounds.content_width`/`content_height` if you want to fit the
 polylines themselves (no padding) into a tile.
-
-## Matplotlib (only when the user explicitly asks for matplotlib)
-
-    import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, 2, figsize=(10, 6))
-    for ax, coords, title, load in [
-        (axes[0], result.shapes.local_buckling, "Local", result.Pcrl),
-        (axes[1], result.shapes.distortional_buckling, "Distortional", result.Pcrd),
-    ]:
-        ax.plot(coords.X, coords.Y, "-")
-        ax.set_aspect("equal")
-        ax.set_title(f"{title} buckling\\nPcr = {load:.3f}")
-
-Do NOT rescale, slice, or reinterpret the coordinates — just plot X vs Y.
 """
 
 
