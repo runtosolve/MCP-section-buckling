@@ -66,6 +66,30 @@ class ShapeVisualization(BaseModel):
     )
 
 
+class SectionProperties(BaseModel):
+    A: float = Field(description="Cross-sectional area")
+    xc: float = Field(description="X coordinate of the centroid")
+    yc: float = Field(description="Y coordinate of the centroid")
+    Ixx: float = Field(description="Moment of inertia of x-axis")
+    Iyy: float = Field(description="Moment of inertia of y-axis")
+    Ixy: float = Field(
+        description="Product of inertia about the x- and y- axes")
+    theta: float = Field(
+        alias="θ",
+        description="Principal axis rotation angle (radians) from the centroidal x-axis",
+    )
+    I1: float = Field(description="Major principal moment of inertia")
+    I2: float = Field(description="Minor principal moment of inertia")
+    J: float = Field(description="Saint-Venant torsion constant")
+    xs: float = Field(description="X coordinate of the shear center")
+    ys: float = Field(description="Y coordinate of the shear center")
+    Cw: float = Field(description="Warping torsion constant")
+    B1: float = Field(description="Monosymmetry parameter about the 1-axis")
+    B2: float = Field(description="Monosymmetry parameter about the 2-axis")
+
+    model_config = {"populate_by_name": True}
+
+
 class CeeBucklingResult(BaseModel):
     Pcrl: float = Field(description="Critical local buckling load")
     Pcrd: float = Field(description="Critical distortional buckling load")
@@ -77,6 +101,9 @@ class CeeBucklingResult(BaseModel):
             "shapes.distortional_buckling) are for numerical reference only; "
             "do NOT use them to render or reconstruct the mode shapes."
         )
+    )
+    section_properties: SectionProperties = Field(
+        description="Section properties of the cross-section"
     )
     units: dict = Field(
         description="Units for dimensions, force, and stress (e.g., {'dimensions': 'mm', 'force': 'N', 'stress': 'MPa'})"
@@ -290,6 +317,27 @@ Do NOT rescale, slice, or reinterpret the coordinates — just plot X vs Y.
 """
 
 
+def _extract_section_properties(result: dict) -> SectionProperties:
+    """Extract section properties from the result for reference."""
+    return SectionProperties(
+        A=result["section_properties"]["A"],
+        xc=result["section_properties"]["xc"],
+        yc=result["section_properties"]["yc"],
+        Ixx=result["section_properties"]["Ixx"],
+        Iyy=result["section_properties"]["Iyy"],
+        Ixy=result["section_properties"]["Ixy"],
+        θ=result["section_properties"]["θ"],
+        I1=result["section_properties"]["I1"],
+        I2=result["section_properties"]["I2"],
+        J=result["section_properties"]["J"],
+        xs=result["section_properties"]["xs"],
+        ys=result["section_properties"]["ys"],
+        Cw=result["section_properties"]["Cw"],
+        B1=result["section_properties"]["B1"],
+        B2=result["section_properties"]["B2"],
+    )
+
+
 @mcp.tool(
     name="calculate_cee_buckling",
     description="\n".join([OVERALL_DESCRIPTION, SVG_RENDERING_INSTRUCTIONS]),
@@ -308,6 +356,8 @@ def calculate_cee_buckling(
         Field(description="Young's modulus. Default: 203000 MPa or 29500 ksi"),
     ] = None,
     nu: Annotated[float, Field(description="Poisson's ratio")] = 0.3,
+    mode_shape_element_discretization: Annotated[int, Field(
+        description="Number of finite strip elements per plate segment for mode shape calculation. Higher values yield smoother mode shapes at the cost of increased computation time. Default: 2")] = 2,
     units: Annotated[
         Literal["mm", "inch"],
         Field(description="Unit system — 'mm' (metric) or 'inch' (imperial)"),
@@ -320,7 +370,8 @@ def calculate_cee_buckling(
     if E is None:
         E = E_IMPERIAL if is_inch else E_METRIC
 
-    payload = {"H": H, "B": B, "t": t, "L": L, "r": r, "E": E, "nu": nu}
+    payload = {"H": H, "B": B, "t": t, "L": L, "r": r, "E": E, "nu": nu,
+               "mode_shape_element_discretization": mode_shape_element_discretization}
     with httpx.Client() as client:
         resp = client.post(f"{CEE_BACKEND_URL}/calculate",
                            json=payload, timeout=120)
@@ -331,6 +382,7 @@ def calculate_cee_buckling(
         Pcrl=result["Pcrl"],
         Pcrd=result["Pcrd"],
         shapes=_create_shape_coordinates(result),
+        section_properties=_extract_section_properties(result),
         units=IMPERIAL_UNITS if is_inch else METRIC_UNITS,
     )
 
