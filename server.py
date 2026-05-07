@@ -36,9 +36,51 @@ class ModeShapeCoordinates(BaseModel):
     )
 
 
+class SvgBounds(BaseModel):
+    """Machine-readable bounds for the SVG geometry.
+
+    All fields describe the *union* of the three polylines (undeformed, local,
+    distortional) — they share a single coordinate space, viewBox, and origin.
+    The origin (0, 0) is the center of that union's bounding box. It is NOT
+    the section centroid; the deformed mode shapes extend asymmetrically
+    beyond the undeformed centerline, so the union center is shifted slightly
+    from the section centroid.
+
+    Use `width`/`height` to compute a fit-to-target scale without parsing the
+    viewBox string. Use `content_width`/`content_height` if you want to fit
+    the polylines themselves (no padding) into a tile.
+    """
+
+    width: float = Field(
+        description="viewBox width, including padding. Equals 2*max(|x|) over the union of all polylines, plus padding."
+    )
+    height: float = Field(
+        description="viewBox height, including padding."
+    )
+    xmin: float = Field(
+        description="viewBox xmin (negative; the geometry is centered on the origin)."
+    )
+    ymin: float = Field(
+        description="viewBox ymin (negative)."
+    )
+    content_width: float = Field(
+        description="Tight bounding-box width of the polylines, without padding."
+    )
+    content_height: float = Field(
+        description="Tight bounding-box height of the polylines, without padding."
+    )
+    origin: Literal["viewbox-center"] = Field(
+        default="viewbox-center",
+        description="Where (0, 0) sits. 'viewbox-center' = center of the union bounding box of all three polylines. Not the section centroid.",
+    )
+
+
 class SvgGeometry(BaseModel):
     viewBox: str = Field(
         description="SVG viewBox attribute string ('xmin ymin width height') sized to fit all shapes with padding. Use this verbatim on the <svg> element."
+    )
+    bounds: SvgBounds = Field(
+        description="Numeric bounds and origin for the geometry. Use these instead of parsing the viewBox string when embedding into a larger SVG."
     )
     undeformed_points: str = Field(
         description="Space-separated 'x,y x,y …' polyline points for the undeformed centerline, with Y already flipped for SVG. Drop into <polyline points=\"…\"/>."
@@ -172,7 +214,7 @@ def _build_svg_geometry(
     curves: list[tuple[list[float], list[float]]],
     padding_ratio: float = 0.05,
     precision: int = 2,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], SvgBounds]:
     """Build a shared SVG viewBox and Y-flipped polyline point strings.
 
     Coordinates are uniformly scaled so the Y span maps to ~SVG_TARGET_HEIGHT
@@ -211,7 +253,15 @@ def _build_svg_geometry(
         )
         for xs, ys in curves
     ]
-    return view_box, points
+    bounds = SvgBounds(
+        width=round(vb_w, precision),
+        height=round(vb_h, precision),
+        xmin=round(vb_xmin, precision),
+        ymin=round(vb_ymin, precision),
+        content_width=round(2 * half_w, precision),
+        content_height=round(2 * half_h, precision),
+    )
+    return view_box, points, bounds
 
 
 def _create_shape_coordinates(result: dict) -> ShapeVisualization:
@@ -234,7 +284,7 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
     distortional_X = _round_coordinates(distortional_coords["X"])
     distortional_Y = _round_coordinates(distortional_coords["Y"])
 
-    view_box, (und_pts, loc_pts, dist_pts) = _build_svg_geometry([
+    view_box, (und_pts, loc_pts, dist_pts), bounds = _build_svg_geometry([
         (undeformed_X, undeformed_Y),
         (local_X, local_Y),
         (distortional_X, distortional_Y),
@@ -247,6 +297,7 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
             X=distortional_X, Y=distortional_Y),
         svg=SvgGeometry(
             viewBox=view_box,
+            bounds=bounds,
             undeformed_points=und_pts,
             local_buckling_points=loc_pts,
             distortional_buckling_points=dist_pts,
@@ -291,15 +342,20 @@ so stroke widths stay crisp at any scale.
 ### Embedding inside a larger SVG
 
 Place the polylines in a `<g>` and apply a single `transform` to position the
-whole section:
+whole section. Use `shapes.svg.bounds` to compute the scale without parsing
+the viewBox string:
 
+    s = target_height / shapes.svg.bounds.height
     <g transform="translate(cx, cy) scale(s)">
       <polyline points="{shapes.svg.undeformed_points}" .../>
       <polyline points="{shapes.svg.local_buckling_points}" .../>
     </g>
 
-The geometry is centered at (0, 0) so scaling or rotating needs no extra
-translation offset.
+The composite figure is centered at (0, 0) — that is, the center of the union
+bounding box of all three polylines, NOT the section centroid. So
+`translate(cx, cy)` places that center at `(cx, cy)` with no offset math.
+Use `shapes.svg.bounds.content_width`/`content_height` if you want to fit the
+polylines themselves (no padding) into a tile.
 
 ## Matplotlib (only when the user explicitly asks for matplotlib)
 
