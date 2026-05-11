@@ -1,5 +1,4 @@
 
-import sys
 import os
 from server import (
     CEE_BACKEND_URL,
