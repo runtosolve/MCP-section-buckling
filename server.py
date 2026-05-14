@@ -290,8 +290,12 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
 
 
 OVERALL_DESCRIPTION = """\
-Calculate elastic buckling loads for a cold-formed C-section (Cee section) using finite-strip analysis.
+Calculate elastic buckling loads and section properties for a cold-formed C-section (Cee section) using finite-strip analysis.
 Returns critical loads and SVG-ready mode shape geometry.
+
+When using this tool, do not immediately return all the results to the user. In particular, do not immediately display the mode shapes, as they can be complex and may not be of interest to all users. 
+Instead, first present exactly what the users asked for (critical loads or section properties) in a clear and concise manner.
+Explain what you did, and then offer other results as optional follow-ups.
 """
 
 SVG_RENDERING_INSTRUCTIONS = """\
@@ -339,6 +343,26 @@ bounding box of all three polylines, NOT the section centroid. So
 `translate(cx, cy)` places that center at `(cx, cy)` with no offset math.
 Use `shapes.svg.bounds.content_width`/`content_height` if you want to fit the
 polylines themselves (no padding) into a tile.
+
+### Placing legends, labels, and annotations
+
+The polylines occupy nearly the full viewBox — a C-section spans the entire
+height and most of the width. Do NOT place legends, titles, or labels inside
+the viewBox on top of the geometry; they will collide with the section walls.
+
+If you want a legend or labels:
+
+1. **Extend the viewBox** to add a gutter beside the section, e.g. widen
+   `width` by ~40% and shift `xmin` so the new space sits to the right (or
+   below) the polylines. Place legend swatches and text in that gutter.
+2. **Or render the legend in surrounding HTML/markup**, outside the `<svg>`.
+
+Do NOT use an SVG `<mask>` to "punch text gaps" through the mode-shape
+polylines. A mask that hides the polyline wherever a label sits will erase
+real geometry (typically the top flange and lip, which live near y = ymin)
+and make the mode shape look truncated. If you need text over a curve for
+readability, draw the text with a contrasting `stroke`/`paint-order`, or
+move the text out of the geometry region entirely.
 """
 
 
@@ -374,19 +398,19 @@ def calculate_cee_buckling(
     L: Annotated[float, Field(description="Lip width")],
     r: Annotated[
         float | None,
-        Field(description="Inside corner radius. Default: 2.0 mm or 0.0625 inch"),
+        Field(description="Inside corner radius. Default: 0.0625 inch or 2.0 mm"),
     ] = None,
     E: Annotated[
         float | None,
-        Field(description="Young's modulus. Default: 203000 MPa or 29500 ksi"),
+        Field(description="Young's modulus. Default: 29500 ksi or 203000 MPa"),
     ] = None,
     nu: Annotated[float, Field(description="Poisson's ratio")] = 0.3,
     mode_shape_element_discretization: Annotated[int, Field(
         description="Number of finite strip elements per plate segment for mode shape calculation. Higher values yield smoother mode shapes at the cost of increased computation time. Default: 2")] = 2,
     units: Annotated[
-        Literal["mm", "inch"],
-        Field(description="Unit system — 'mm' (metric) or 'inch' (imperial)"),
-    ] = "mm",
+        Literal["inch", "mm"],
+        Field(description="Unit system — 'inch' (imperial) or 'mm' (metric). Default: 'inch'. Use imperial unless asked to do otherwise."),
+    ] = "inch",
 ) -> CeeBucklingResult:
     """Calculate Cee section buckling loads and mode shapes."""
     is_inch = units.lower().startswith("in")
