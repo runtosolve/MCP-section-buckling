@@ -13,7 +13,7 @@
     "command": "npx",
     "args": [
         "mcp-remote",
-        "https://mcp.runtosolve.com/mcp"
+        "https://mcp.runtosolve.com/mcp-section-buckling"
     ]
   }
 }
@@ -28,7 +28,7 @@ At step 4, use the following setting instead:
     "command": "npx",
     "args": [
         "mcp-remote",
-        "http://127.0.0.1:8000/mcp"
+        "http://127.0.0.1:8000/mcp-section-buckling"
     ]
   }
 }
