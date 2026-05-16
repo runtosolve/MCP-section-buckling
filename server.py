@@ -1,11 +1,13 @@
 """CEE Section Buckling — Remote MCP Server (Streamable HTTP)."""
 
+import base64
 import os
 from typing import Annotated, Literal
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ImageContent, TextContent
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 from starlette.responses import Response
@@ -36,51 +38,9 @@ class ModeShapeCoordinates(BaseModel):
     )
 
 
-class SvgBounds(BaseModel):
-    """Machine-readable bounds for the SVG geometry.
-
-    All fields describe the *union* of the three polylines (undeformed, local,
-    distortional) — they share a single coordinate space, viewBox, and origin.
-    The origin (0, 0) is the center of that union's bounding box. It is NOT
-    the section centroid; the deformed mode shapes extend asymmetrically
-    beyond the undeformed centerline, so the union center is shifted slightly
-    from the section centroid.
-
-    Use `width`/`height` to compute a fit-to-target scale without parsing the
-    viewBox string. Use `content_width`/`content_height` if you want to fit
-    the polylines themselves (no padding) into a tile.
-    """
-
-    width: float = Field(
-        description="viewBox width, including padding. Equals 2*max(|x|) over the union of all polylines, plus padding."
-    )
-    height: float = Field(
-        description="viewBox height, including padding."
-    )
-    xmin: float = Field(
-        description="viewBox xmin (negative; the geometry is centered on the origin)."
-    )
-    ymin: float = Field(
-        description="viewBox ymin (negative)."
-    )
-    content_width: float = Field(
-        description="Tight bounding-box width of the polylines, without padding."
-    )
-    content_height: float = Field(
-        description="Tight bounding-box height of the polylines, without padding."
-    )
-    origin: Literal["viewbox-center"] = Field(
-        default="viewbox-center",
-        description="Where (0, 0) sits. 'viewbox-center' = center of the union bounding box of all three polylines. Not the section centroid.",
-    )
-
-
 class SvgGeometry(BaseModel):
     viewBox: str = Field(
         description="SVG viewBox attribute string ('xmin ymin width height') sized to fit all shapes with padding. Use this verbatim on the <svg> element."
-    )
-    bounds: SvgBounds = Field(
-        description="Numeric bounds and origin for the geometry. Use these instead of parsing the viewBox string when embedding into a larger SVG."
     )
     undeformed_points: str = Field(
         description="Space-separated 'x,y x,y …' polyline points for the undeformed centerline, with Y already flipped for SVG. Drop into <polyline points=\"…\"/>."
@@ -94,33 +54,18 @@ class SvgGeometry(BaseModel):
 
 
 class ShapeVisualization(BaseModel):
+    undeformed: ModeShapeCoordinates = Field(
+        description="Undeformed wall centerline coordinates in engineering units"
+    )
+    local_buckling: ModeShapeCoordinates = Field(
+        description="Local buckling mode shape coordinates in engineering units (deformed)"
+    )
+    distortional_buckling: ModeShapeCoordinates = Field(
+        description="Distortional buckling mode shape coordinates in engineering units (deformed)"
+    )
     svg: SvgGeometry = Field(
-        description="Precomputed SVG-ready geometry (Y-flipped, padded viewBox) for direct use in <svg>/<polyline>."
+        description="Precomputed SVG-ready geometry (Y-flipped, padded viewBox) for direct use in <svg>/<polyline>. Use this when rendering SVG instead of remapping the engineering coordinates yourself."
     )
-
-
-class SectionProperties(BaseModel):
-    A: float = Field(description="Cross-sectional area")
-    xc: float = Field(description="X coordinate of the centroid")
-    yc: float = Field(description="Y coordinate of the centroid")
-    Ixx: float = Field(description="Moment of inertia of x-axis")
-    Iyy: float = Field(description="Moment of inertia of y-axis")
-    Ixy: float = Field(
-        description="Product of inertia about the x- and y- axes")
-    theta: float = Field(
-        alias="θ",
-        description="Principal axis rotation angle (radians) from the centroidal x-axis",
-    )
-    I1: float = Field(description="Major principal moment of inertia")
-    I2: float = Field(description="Minor principal moment of inertia")
-    J: float = Field(description="Saint-Venant torsion constant")
-    xs: float = Field(description="X coordinate of the shear center")
-    ys: float = Field(description="Y coordinate of the shear center")
-    Cw: float = Field(description="Warping torsion constant")
-    B1: float = Field(description="Monosymmetry parameter about the 1-axis")
-    B2: float = Field(description="Monosymmetry parameter about the 2-axis")
-
-    model_config = {"populate_by_name": True}
 
 
 class CeeBucklingResult(BaseModel):
@@ -129,11 +74,11 @@ class CeeBucklingResult(BaseModel):
     shapes: ShapeVisualization = Field(
         description=(
             "Mode shape data. Use shapes.svg for ALL rendering — it contains "
-            "precomputed, Y-flipped SVG polyline strings ready for direct use in <polyline>."
+            "precomputed, Y-flipped SVG polyline strings ready for direct use in <polyline>. "
+            "The raw X/Y coordinate arrays (shapes.undeformed, shapes.local_buckling, "
+            "shapes.distortional_buckling) are for numerical reference only; "
+            "do NOT use them to render or reconstruct the mode shapes."
         )
-    )
-    section_properties: SectionProperties = Field(
-        description="Section properties of the cross-section"
     )
     units: dict = Field(
         description="Units for dimensions, force, and stress (e.g., {'dimensions': 'mm', 'force': 'N', 'stress': 'MPa'})"
@@ -147,6 +92,7 @@ mcp = FastMCP(
     "CEE Section Buckling",
     host="0.0.0.0",
     port=8000,
+    streamable_http_path="/mcp-section-buckling",
     transport_security=security,
 )
 
@@ -202,7 +148,7 @@ def _build_svg_geometry(
     curves: list[tuple[list[float], list[float]]],
     padding_ratio: float = 0.05,
     precision: int = 2,
-) -> tuple[str, list[str], SvgBounds]:
+) -> tuple[str, list[str]]:
     """Build a shared SVG viewBox and Y-flipped polyline point strings.
 
     Coordinates are uniformly scaled so the Y span maps to ~SVG_TARGET_HEIGHT
@@ -241,15 +187,60 @@ def _build_svg_geometry(
         )
         for xs, ys in curves
     ]
-    bounds = SvgBounds(
-        width=round(vb_w, precision),
-        height=round(vb_h, precision),
-        xmin=round(vb_xmin, precision),
-        ymin=round(vb_ymin, precision),
-        content_width=round(2 * half_w, precision),
-        content_height=round(2 * half_h, precision),
+    return view_box, points
+
+
+def _render_full_svg(svg: "SvgGeometry", Pcrl: float, Pcrd: float, units: dict) -> str:
+    """Assemble the polyline pieces into a complete, self-contained SVG.
+
+    The returned string is a standalone SVG document (with xml declaration
+    and xmlns) so it can be base64-encoded and returned as MCP ImageContent
+    with mimeType=image/svg+xml — LibreChat will render it as a regular
+    image attachment, no client-side reassembly or code-exec needed.
+    """
+    force_unit = units.get("force", "")
+    # viewBox is "xmin ymin width height" — derive a sane label position
+    # at the top of the frame.
+    vb = svg.viewBox.split()
+    if len(vb) == 4:
+        vb_xmin = float(vb[0])
+        vb_ymin = float(vb[1])
+        vb_w = float(vb[2])
+        label_x = vb_xmin + vb_w / 2
+        label_y = vb_ymin + 14
+        font_size = max(round(vb_w / 35, 1), 8.0)
+    else:
+        label_x, label_y, font_size = 0, -200, 12
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{svg.viewBox}" '
+        f'preserveAspectRatio="xMidYMid meet" width="500" height="500">\n'
+        '  <style>text{font-family:system-ui,sans-serif}</style>\n'
+        f'  <text x="{label_x}" y="{label_y}" font-size="{font_size}" '
+        'text-anchor="middle" fill="#333">'
+        f'Pcrl = {Pcrl:.3f} {force_unit}  |  Pcrd = {Pcrd:.3f} {force_unit}'
+        '</text>\n'
+        f'  <polyline points="{svg.undeformed_points}" fill="none" '
+        'stroke="#888" stroke-width="1" stroke-dasharray="3,3" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        f'  <polyline points="{svg.local_buckling_points}" fill="none" '
+        'stroke="#1f77b4" stroke-width="2" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        f'  <polyline points="{svg.distortional_buckling_points}" fill="none" '
+        'stroke="#d62728" stroke-width="2" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        '</svg>\n'
     )
-    return view_box, points, bounds
+
+
+def _svg_image_content(svg_str: str) -> ImageContent:
+    """Wrap an SVG string as an MCP ImageContent payload."""
+    return ImageContent(
+        type="image",
+        mimeType="image/svg+xml",
+        data=base64.b64encode(svg_str.encode("utf-8")).decode("ascii"),
+    )
 
 
 def _create_shape_coordinates(result: dict) -> ShapeVisualization:
@@ -272,16 +263,19 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
     distortional_X = _round_coordinates(distortional_coords["X"])
     distortional_Y = _round_coordinates(distortional_coords["Y"])
 
-    view_box, (und_pts, loc_pts, dist_pts), bounds = _build_svg_geometry([
+    view_box, (und_pts, loc_pts, dist_pts) = _build_svg_geometry([
         (undeformed_X, undeformed_Y),
         (local_X, local_Y),
         (distortional_X, distortional_Y),
     ])
 
     return ShapeVisualization(
+        undeformed=ModeShapeCoordinates(X=undeformed_X, Y=undeformed_Y),
+        local_buckling=ModeShapeCoordinates(X=local_X, Y=local_Y),
+        distortional_buckling=ModeShapeCoordinates(
+            X=distortional_X, Y=distortional_Y),
         svg=SvgGeometry(
             viewBox=view_box,
-            bounds=bounds,
             undeformed_points=und_pts,
             local_buckling_points=loc_pts,
             distortional_buckling_points=dist_pts,
@@ -290,18 +284,15 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
 
 
 OVERALL_DESCRIPTION = """\
-Calculate elastic buckling loads and section properties for a cold-formed C-section (Cee section) using finite-strip analysis.
+Calculate elastic buckling loads for a cold-formed C-section (Cee section) using finite-strip analysis.
 Returns critical loads and SVG-ready mode shape geometry.
-
-When using this tool, do not immediately return all the results to the user. In particular, do not immediately display the mode shapes, as they can be complex and may not be of interest to all users. 
-Instead, first present exactly what the users asked for (critical loads or section properties) in a clear and concise manner.
-Explain what you did, and then offer other results as optional follow-ups.
 """
 
 SVG_RENDERING_INSTRUCTIONS = """\
 ## Rendering mode shapes
 
-ALWAYS render mode shapes using `shapes.svg`. The server has already handled
+ALWAYS render mode shapes using `shapes.svg`. Never manually remap or
+reinterpret the raw engineering coordinates — the server has already handled
 the Y-axis flip, uniform scaling, padding, and centering.
 
 ### Minimal standalone SVG (auto-fits the section)
@@ -329,62 +320,30 @@ so stroke widths stay crisp at any scale.
 ### Embedding inside a larger SVG
 
 Place the polylines in a `<g>` and apply a single `transform` to position the
-whole section. Use `shapes.svg.bounds` to compute the scale without parsing
-the viewBox string:
+whole section:
 
-    s = target_height / shapes.svg.bounds.height
     <g transform="translate(cx, cy) scale(s)">
       <polyline points="{shapes.svg.undeformed_points}" .../>
       <polyline points="{shapes.svg.local_buckling_points}" .../>
     </g>
 
-The composite figure is centered at (0, 0) — that is, the center of the union
-bounding box of all three polylines, NOT the section centroid. So
-`translate(cx, cy)` places that center at `(cx, cy)` with no offset math.
-Use `shapes.svg.bounds.content_width`/`content_height` if you want to fit the
-polylines themselves (no padding) into a tile.
+The geometry is centered at (0, 0) so scaling or rotating needs no extra
+translation offset.
 
-### Placing legends, labels, and annotations
+## Matplotlib (only when the user explicitly asks for matplotlib)
 
-The polylines occupy nearly the full viewBox — a C-section spans the entire
-height and most of the width. Do NOT place legends, titles, or labels inside
-the viewBox on top of the geometry; they will collide with the section walls.
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(1, 2, figsize=(10, 6))
+    for ax, coords, title, load in [
+        (axes[0], result.shapes.local_buckling, "Local", result.Pcrl),
+        (axes[1], result.shapes.distortional_buckling, "Distortional", result.Pcrd),
+    ]:
+        ax.plot(coords.X, coords.Y, "-")
+        ax.set_aspect("equal")
+        ax.set_title(f"{title} buckling\\nPcr = {load:.3f}")
 
-If you want a legend or labels:
-
-1. **Extend the viewBox** to add a gutter beside the section, e.g. widen
-   `width` by ~40% and shift `xmin` so the new space sits to the right (or
-   below) the polylines. Place legend swatches and text in that gutter.
-2. **Or render the legend in surrounding HTML/markup**, outside the `<svg>`.
-
-Do NOT use an SVG `<mask>` to "punch text gaps" through the mode-shape
-polylines. A mask that hides the polyline wherever a label sits will erase
-real geometry (typically the top flange and lip, which live near y = ymin)
-and make the mode shape look truncated. If you need text over a curve for
-readability, draw the text with a contrasting `stroke`/`paint-order`, or
-move the text out of the geometry region entirely.
+Do NOT rescale, slice, or reinterpret the coordinates — just plot X vs Y.
 """
-
-
-def _extract_section_properties(result: dict) -> SectionProperties:
-    """Extract section properties from the result for reference."""
-    return SectionProperties(
-        A=result["section_properties"]["A"],
-        xc=result["section_properties"]["xc"],
-        yc=result["section_properties"]["yc"],
-        Ixx=result["section_properties"]["Ixx"],
-        Iyy=result["section_properties"]["Iyy"],
-        Ixy=result["section_properties"]["Ixy"],
-        θ=result["section_properties"]["θ"],
-        I1=result["section_properties"]["I1"],
-        I2=result["section_properties"]["I2"],
-        J=result["section_properties"]["J"],
-        xs=result["section_properties"]["xs"],
-        ys=result["section_properties"]["ys"],
-        Cw=result["section_properties"]["Cw"],
-        B1=result["section_properties"]["B1"],
-        B2=result["section_properties"]["B2"],
-    )
 
 
 @mcp.tool(
@@ -398,42 +357,55 @@ def calculate_cee_buckling(
     L: Annotated[float, Field(description="Lip width")],
     r: Annotated[
         float | None,
-        Field(description="Inside corner radius. Default: 0.0625 inch or 2.0 mm"),
+        Field(description="Inside corner radius. Default: 2.0 mm or 0.0625 inch"),
     ] = None,
     E: Annotated[
         float | None,
-        Field(description="Young's modulus. Default: 29500 ksi or 203000 MPa"),
+        Field(description="Young's modulus. Default: 203000 MPa or 29500 ksi"),
     ] = None,
     nu: Annotated[float, Field(description="Poisson's ratio")] = 0.3,
-    mode_shape_element_discretization: Annotated[int, Field(
-        description="Number of finite strip elements per plate segment for mode shape calculation. Higher values yield smoother mode shapes at the cost of increased computation time. Default: 2")] = 2,
     units: Annotated[
-        Literal["inch", "mm"],
-        Field(description="Unit system — 'inch' (imperial) or 'mm' (metric). Default: 'inch'. Use imperial unless asked to do otherwise."),
-    ] = "inch",
-) -> CeeBucklingResult:
-    """Calculate Cee section buckling loads and mode shapes."""
+        Literal["mm", "inch"],
+        Field(description="Unit system — 'mm' (metric) or 'inch' (imperial)"),
+    ] = "mm",
+) -> list[TextContent | ImageContent]:
+    """Calculate Cee section buckling loads and mode shapes.
+
+    Returns a two-element content list:
+      1. TextContent — the full CeeBucklingResult as JSON (Pcrl, Pcrd,
+         shapes, units) so the model can reason about the numbers.
+      2. ImageContent — a self-contained SVG of both buckling modes
+         (image/svg+xml) so chat clients can render the plot inline
+         without invoking a separate code-exec tool.
+    """
     is_inch = units.lower().startswith("in")
     if r is None:
         r = R_DEFAULT_IMPERIAL if is_inch else R_DEFAULT_METRIC
     if E is None:
         E = E_IMPERIAL if is_inch else E_METRIC
 
-    payload = {"H": H, "B": B, "t": t, "L": L, "r": r, "E": E, "nu": nu,
-               "mode_shape_element_discretization": mode_shape_element_discretization}
+    payload = {"H": H, "B": B, "t": t, "L": L, "r": r, "E": E, "nu": nu}
     with httpx.Client() as client:
         resp = client.post(f"{CEE_BACKEND_URL}/calculate",
                            json=payload, timeout=120)
         resp.raise_for_status()
         result = resp.json()
 
-    return CeeBucklingResult(
+    units_dict = IMPERIAL_UNITS if is_inch else METRIC_UNITS
+    parsed = CeeBucklingResult(
         Pcrl=result["Pcrl"],
         Pcrd=result["Pcrd"],
         shapes=_create_shape_coordinates(result),
-        section_properties=_extract_section_properties(result),
-        units=IMPERIAL_UNITS if is_inch else METRIC_UNITS,
+        units=units_dict,
     )
+
+    svg_str = _render_full_svg(parsed.shapes.svg, parsed.Pcrl, parsed.Pcrd,
+                               units_dict)
+
+    return [
+        TextContent(type="text", text=parsed.model_dump_json()),
+        _svg_image_content(svg_str),
+    ]
 
 
 if __name__ == "__main__":
@@ -447,6 +419,7 @@ if __name__ == "__main__":
         json_mcp = FastMCP(
             "CEE Section Buckling",
             json_response=True,
+            streamable_http_path="/mcp-section-buckling",
             transport_security=security,
         )
         # Register same tool on json server
