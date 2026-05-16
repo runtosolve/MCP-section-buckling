@@ -13,7 +13,7 @@
     "command": "npx",
     "args": [
         "mcp-remote",
-        "https://mcp.runtosolve.com/mcp"
+        "https://mcp.runtosolve.com/mcp-section-buckling"
     ]
   }
 }
