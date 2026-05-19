@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "67e3e14213419e87042036ff4c1a6552d4fb00f1"
+project_hash = "91c0018dad3b235aa845d1e0de1699870a5992cc"
 
 [[deps.AISIS100]]
 deps = ["CSV", "DataFrames", "LinearAlgebra", "Statistics", "Unitful"]
@@ -347,9 +347,9 @@ version = "1.8.0"
 
 [[deps.JSON]]
 deps = ["Dates", "Logging", "Parsers", "PrecompileTools", "StructUtils", "UUIDs", "Unicode"]
-git-tree-sha1 = "fe23330af47b8ab4e135b2ff65f7398c3a2bfc65"
+git-tree-sha1 = "f76f7560267b840e492180f9899b472f30b88450"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "1.5.2"
+version = "1.6.0"
 
     [deps.JSON.extensions]
     JSONArrowExt = ["ArrowTypes"]
@@ -444,7 +444,7 @@ version = "1.12.0"
 
 [[deps.LinesCurvesNodes]]
 deps = ["LinearAlgebra", "Rotations", "StaticArrays"]
-git-tree-sha1 = "cf9a20a7c4eca44b925f2e2448bf9ca4e8c939c9"
+git-tree-sha1 = "0b222b836cb45d2efeb93aba4a5934a1ee46a6f4"
 repo-rev = "main"
 repo-url = "https://github.com/runtosolve/LinesCurvesNodes.jl.git"
 uuid = "74a74c3a-221d-4cd1-a4eb-c3c8149e7592"
@@ -564,9 +564,9 @@ version = "2025.11.4"
 
 [[deps.MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "7c25249fc13a070f5ba433c50e21e22bb33c6fb0"
+git-tree-sha1 = "dc5b2c4c111c46bc79ac4405eeb563523b39c004"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.7.1"
+version = "1.8.0"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -604,6 +604,22 @@ version = "1.6.1"
 deps = ["Artifacts", "Libdl"]
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
 version = "3.5.4+0"
+
+[[deps.OpenSectionBuckling]]
+deps = ["CUFSM", "CrossSectionGeometry", "LinearAlgebra", "LinesCurvesNodes", "cFSM"]
+git-tree-sha1 = "c3eb785d9e02324444c17ca80cf98d34ada9e9cd"
+repo-rev = "main"
+repo-url = "https://github.com/runtosolve/OpenSectionBuckling.jl.git"
+uuid = "a27af054-6946-4f6a-873a-7094cb2f6768"
+version = "0.1.0"
+
+[[deps.OpenSectionBucklingAPI]]
+deps = ["CUFSM", "CUFSMModalGeometry", "CrossSectionGeometry", "JSON", "LinesCurvesNodes", "OpenSectionBuckling", "SectionProperties", "cFSM"]
+git-tree-sha1 = "2695926dbea20bc9ac70d77f5f09fffa1ef9252c"
+repo-rev = "main"
+repo-url = "https://github.com/runtosolve/OpenSectionBucklingAPI.jl.git"
+uuid = "36b64f1b-83bf-4478-97ef-0e8c84cc1597"
+version = "0.1.0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
@@ -732,7 +748,7 @@ version = "0.7.0"
 
 [[deps.SectionProperties]]
 deps = ["LinearAlgebra", "Statistics"]
-git-tree-sha1 = "0dd732b919cdeba69f980664182cfff2347402c1"
+git-tree-sha1 = "a3fa7fe138da702c4a744b5e9433f914065f03f4"
 repo-rev = "main"
 repo-url = "https://github.com/runtosolve/SectionProperties.jl.git"
 uuid = "03320fb2-42b0-43fd-9b66-b95dbaa39193"
@@ -740,9 +756,9 @@ version = "0.1.0"
 
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
-git-tree-sha1 = "ebe7e59b37c400f694f52b58c93d26201387da70"
+git-tree-sha1 = "084c47c7c5ce5cfecefa0a98dff69eb3646b5a80"
 uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.9"
+version = "1.4.10"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -833,9 +849,9 @@ version = "1.11.0"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "dd974aefe288ef2898733aecf40858dc86742d74"
+git-tree-sha1 = "82bee338d650aa515f31866c460cb7e3bcef90b8"
 uuid = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
-version = "2.8.1"
+version = "2.8.2"
 
     [deps.StructUtils.extensions]
     StructUtilsMeasurementsExt = ["Measurements"]
@@ -1006,6 +1022,14 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "aws_c_common_jll"]
 git-tree-sha1 = "2570c8e23f4771a087b12a47edcaaa670ac05a01"
 uuid = "b2a88e68-78e7-5e94-8c20-c02986ec140e"
 version = "0.2.10+0"
+
+[[deps.cFSM]]
+deps = ["CUFSM", "LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "48af5c3ec723ff35c384b785d9cb25bd3a15a28d"
+repo-rev = "main"
+repo-url = "https://github.com/runtosolve/cFSM.jl.git"
+uuid = "f62c156c-76c5-4505-9990-675440343290"
+version = "0.1.0"
 
 [[deps.dlfcn_win32_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
