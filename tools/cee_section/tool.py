@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from backend import call_backend, resolve_material_defaults
+from tools.shared.backend import call_backend, resolve_material_defaults
 from config import IMPERIAL_UNITS, METRIC_UNITS
 from tools.shared.shapes import (
     SVG_RENDERING_INSTRUCTIONS,
