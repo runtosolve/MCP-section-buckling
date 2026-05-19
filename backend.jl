@@ -26,7 +26,7 @@ function handle_health(::HTTP.Request)
 end
 
 # ── POST /calculate — run buckling analysis ──────────────────────────────────
-function handle_calculate(req::HTTP.Request)
+function handle_cee_section_calculate(req::HTTP.Request)
     local body
     try
         body = JSON3.read(String(req.body))
@@ -97,8 +97,8 @@ const ROUTER = HTTP.Router()
 
 HTTP.register!(ROUTER, "GET",     "/",          handle_health)
 HTTP.register!(ROUTER, "OPTIONS", "/",          handle_cors)
-HTTP.register!(ROUTER, "POST",    "/calculate", handle_calculate)
-HTTP.register!(ROUTER, "OPTIONS", "/calculate", handle_cors)
+HTTP.register!(ROUTER, "POST",    "/calculate_cee_section", handle_cee_section_calculate)
+HTTP.register!(ROUTER, "OPTIONS", "/calculate_cee_section", handle_cors)
 
 const PORT = parse(Int, get(ENV, "PORT", "8081"))
 

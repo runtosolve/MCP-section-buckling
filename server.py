@@ -404,7 +404,7 @@ def calculate_cee_buckling(
     payload = {"H": H, "B": B, "t": t, "L": L, "r": r, "E": E, "nu": nu,
                "mode_shape_element_discretization": mode_shape_element_discretization}
     with httpx.Client() as client:
-        resp = client.post(f"{CEE_BACKEND_URL}/calculate",
+        resp = client.post(f"{CEE_BACKEND_URL}/calculate_cee_section",
                            json=payload, timeout=120)
         resp.raise_for_status()
         result = resp.json()
