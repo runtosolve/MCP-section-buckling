@@ -607,7 +607,7 @@ version = "3.5.4+0"
 
 [[deps.OpenSectionBuckling]]
 deps = ["CUFSM", "CrossSectionGeometry", "LinearAlgebra", "LinesCurvesNodes", "cFSM"]
-git-tree-sha1 = "a6ea3b89d5c49d750460b9b6c76c862b6b37758d"
+git-tree-sha1 = "c3eb785d9e02324444c17ca80cf98d34ada9e9cd"
 repo-rev = "main"
 repo-url = "https://github.com/runtosolve/OpenSectionBuckling.jl.git"
 uuid = "a27af054-6946-4f6a-873a-7094cb2f6768"

@@ -31,7 +31,6 @@ def test_calculate_open_section_buckling_live_backend():
         coordinates=coordinates,
         t=0.054,
         units="inch",
-        flat_mesh_size_goal=0.1,
     )
 
     assert result.Rcrl is not None
