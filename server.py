@@ -14,6 +14,7 @@ mcp = FastMCP(
     "CEE Section Buckling",
     host="0.0.0.0",
     port=8000,
+    streamable_http_path="/mcp-section-buckling",
     transport_security=security,
 )
 
@@ -24,6 +25,14 @@ async def health(request: Request) -> Response:
 
 
 register_all(mcp)
+
+    svg_str = _render_full_svg(parsed.shapes.svg, parsed.Pcrl, parsed.Pcrd,
+                               units_dict)
+
+    return [
+        TextContent(type="text", text=parsed.model_dump_json()),
+        _svg_image_content(svg_str),
+    ]
 
 
 if __name__ == "__main__":
@@ -37,6 +46,7 @@ if __name__ == "__main__":
         json_mcp = FastMCP(
             "CEE Section Buckling",
             json_response=True,
+            streamable_http_path="/mcp-section-buckling",
             transport_security=security,
         )
         register_all(json_mcp)
