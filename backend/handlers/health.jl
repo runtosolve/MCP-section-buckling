@@ -1,7 +1,7 @@
 function handle_health(::HTTP.Request)
     json_response(200, (
         status    = "ok",
-        endpoints = ["/", "/calculate_cee_section"],
+        endpoints = ["/", "/calculate_cee_section", "/calculate_open_section"],
     ))
 end
 

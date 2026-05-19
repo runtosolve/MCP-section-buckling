@@ -26,6 +26,7 @@ end
 const HANDLERS = [
     (key = :health,                   file = "handlers/health.jl"),
     (key = :calculate_cee_section,    file = "handlers/calculate_cee_section.jl"),
+    (key = :calculate_open_section,   file = "handlers/calculate_open_section.jl"),
 ]
 
 for h in HANDLERS

@@ -1,24 +1,31 @@
 [deps]
-CeeSectionBucklingAPI = "b36a06a5-eada-4387-b3fe-4e5973d65d5f"
-HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 AISIS100 = "01f7396e-a581-4110-84fa-e8964400bef8"
 CUFSM = "82b4978f-06ae-48e0-88e8-a26b4f7a0fa1"
 CUFSMModalGeometry = "82fbcf34-b322-4c20-ba17-babb40f2cc8c"
 CeeSectionBuckling = "58e103f9-c1dd-473d-8fd2-46aa5cb27d98"
+CeeSectionBucklingAPI = "b36a06a5-eada-4387-b3fe-4e5973d65d5f"
 CrossSectionGeometry = "e5713cf4-1a83-4860-95bf-b82253e75fb4"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 LinesCurvesNodes = "74a74c3a-221d-4cd1-a4eb-c3c8149e7592"
+OpenSectionBuckling = "a27af054-6946-4f6a-873a-7094cb2f6768"
+OpenSectionBucklingAPI = "36b64f1b-83bf-4478-97ef-0e8c84cc1597"
 SectionProperties = "03320fb2-42b0-43fd-9b66-b95dbaa39193"
+cFSM = "f62c156c-76c5-4505-9990-675440343290"
 
 [sources]
-CeeSectionBucklingAPI = {url = "https://github.com/runtosolve/CeeSectionBucklingAPI.jl.git", rev = "main"}
-AISIS100 = {url = "https://github.com/runtosolve/AISIS100.jl.git", rev = "main"}
-CUFSM = {url = "https://github.com/runtosolve/CUFSM.jl.git", rev = "main"}
-CUFSMModalGeometry = {url = "https://github.com/runtosolve/CUFSMModalGeometry.jl.git", rev = "main"}
-CeeSectionBuckling = {url = "https://github.com/runtosolve/CeeSectionBuckling.jl.git", rev = "main"}
-CrossSectionGeometry = {url = "https://github.com/runtosolve/CrossSectionGeometry.jl.git", rev = "main"}
-LinesCurvesNodes = {url = "https://github.com/runtosolve/LinesCurvesNodes.jl.git", rev = "main"}
-SectionProperties = {url = "https://github.com/runtosolve/SectionProperties.jl.git", rev = "main"}
+AISIS100 = {rev = "main", url = "https://github.com/runtosolve/AISIS100.jl.git"}
+CUFSM = {rev = "main", url = "https://github.com/runtosolve/CUFSM.jl.git"}
+CUFSMModalGeometry = {rev = "main", url = "https://github.com/runtosolve/CUFSMModalGeometry.jl.git"}
+CeeSectionBuckling = {rev = "main", url = "https://github.com/runtosolve/CeeSectionBuckling.jl.git"}
+CeeSectionBucklingAPI = {rev = "main", url = "https://github.com/runtosolve/CeeSectionBucklingAPI.jl.git"}
+CrossSectionGeometry = {rev = "main", url = "https://github.com/runtosolve/CrossSectionGeometry.jl.git"}
+LinesCurvesNodes = {rev = "main", url = "https://github.com/runtosolve/LinesCurvesNodes.jl.git"}
+SectionProperties = {rev = "main", url = "https://github.com/runtosolve/SectionProperties.jl.git"}
+cFSM = {rev = "main", url = "https://github.com/runtosolve/cFSM.jl.git"}
+OpenSectionBucklingAPI = {rev = "main", url = "https://github.com/runtosolve/OpenSectionBucklingAPI.jl.git"}
+OpenSectionBuckling = {rev = "main", url = "https://github.com/runtosolve/OpenSectionBuckling.jl.git"}
+
 
 [compat]
 julia = "1.10"
