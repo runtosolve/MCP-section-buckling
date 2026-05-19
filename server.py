@@ -291,7 +291,11 @@ def _create_shape_coordinates(result: dict) -> ShapeVisualization:
 
 OVERALL_DESCRIPTION = """\
 Calculate elastic buckling loads for a cold-formed C-section (Cee section) using finite-strip analysis.
-Returns critical loads and SVG-ready mode shape geometry.
+Returns section properties, critical local and distortional buckling loads, and mode shapes as SVG-ready coordinates. 
+When using this tool, only return the results requested by the user.
+Do not provide interpretation of the results unless explicitly requested.
+Do not immediately render the SVG mode shapes unless requested because the user may not be interested in them. 
+Provide the SVG geometry only when requested.
 """
 
 SVG_RENDERING_INSTRUCTIONS = """\
@@ -299,6 +303,8 @@ SVG_RENDERING_INSTRUCTIONS = """\
 
 ALWAYS render mode shapes using `shapes.svg`. The server has already handled
 the Y-axis flip, uniform scaling, padding, and centering.
+
+Never put textbox, labels or legends over the SVG polylines because they may obscure the shapes.
 
 ### Minimal standalone SVG (auto-fits the section)
 
