@@ -1,16 +1,14 @@
 """Call the CEE buckling backend and write the resulting SVG to this folder."""
 
-from server import (
-    CEE_BACKEND_URL,
-    E_IMPERIAL,
-    R_DEFAULT_IMPERIAL,
-    _create_shape_coordinates,
-)
-import httpx
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+import httpx
+
+from config import CEE_BACKEND_URL, E_IMPERIAL, R_DEFAULT_IMPERIAL
+from tools.shared.shapes import create_shape_visualization
 
 
 INPUT = {"H": 3.5, "B": 2, "L": 0.5, "t": 0.054,
@@ -32,7 +30,7 @@ def main() -> None:
 
     print(f"Pcrl={result['Pcrl']:.4f} kips   Pcrd={result['Pcrd']:.4f} kips")
 
-    shapes = _create_shape_coordinates(result)
+    shapes = create_shape_visualization(result)
     svg = shapes.svg
 
     for name, pts_str, stroke, dash in [

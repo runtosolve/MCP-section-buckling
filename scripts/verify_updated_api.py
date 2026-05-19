@@ -1,9 +1,12 @@
 
 import os
-from server import (
-    CEE_BACKEND_URL,
-)
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import httpx
+
+from config import CEE_BACKEND_URL
 payload = {
     "H": 8,
     "B": 2.5,
