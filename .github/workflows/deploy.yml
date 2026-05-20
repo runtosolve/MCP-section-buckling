@@ -1,0 +1,42 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # allow manual trigger from Actions tab
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never interrupt a deploy in flight
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Add deploy key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run deploy script on server
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+        run: |
+          ssh -o IdentitiesOnly=yes \
+            -i ~/.ssh/id_ed25519 \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "GITHUB_SHA=$GITHUB_SHA GITHUB_EVENT=$GITHUB_EVENT /root/MCP/deploy-cee-buckling.sh"
+
+      - name: Tail recent deploy log on failure
+        if: failure()
+        run: |
+          ssh -o IdentitiesOnly=yes \
+            -i ~/.ssh/id_ed25519 \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "tail -200 /var/log/mcp-deploy.log"
