@@ -26,14 +26,6 @@ async def health(request: Request) -> Response:
 
 register_all(mcp)
 
-    svg_str = _render_full_svg(parsed.shapes.svg, parsed.Pcrl, parsed.Pcrd,
-                               units_dict)
-
-    return [
-        TextContent(type="text", text=parsed.model_dump_json()),
-        _svg_image_content(svg_str),
-    ]
-
 
 if __name__ == "__main__":
     import sys
