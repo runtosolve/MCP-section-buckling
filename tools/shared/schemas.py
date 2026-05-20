@@ -66,6 +66,20 @@ class ShapeVisualization(BaseModel):
     svg: SvgGeometry = Field(
         description="Precomputed SVG-ready geometry (Y-flipped, padded viewBox) for direct use in <svg>/<polyline>."
     )
+    image_data_url: str = Field(
+        description=(
+            "Pre-rendered PNG of the mode shapes (section centerline + "
+            "local + distortional + critical-load label), base64-encoded "
+            "as a `data:image/png;base64,…` URL. "
+            "To show this image to the user, emit this markdown VERBATIM "
+            "in your response (replace URL with this field's value):\n\n"
+            "  ![Buckling mode shapes](data:image/png;base64,…)\n\n"
+            "Do NOT compose your own SVG from the polyline pieces (the "
+            "label ends up in pixel coordinates while the section is in "
+            "viewBox coordinates — the legend floats away), do NOT wrap "
+            "this field in a code block."
+        )
+    )
 
 
 class SectionProperties(BaseModel):

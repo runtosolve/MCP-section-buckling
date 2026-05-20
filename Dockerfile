@@ -2,6 +2,7 @@ FROM julia:1.12-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl python3 python3-pip python3-venv \
+    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

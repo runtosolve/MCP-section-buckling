@@ -54,12 +54,15 @@ def calculate_cee_buckling(
                "mode_shape_element_discretization": mode_shape_element_discretization}
     result = call_backend(ENDPOINT, payload)
 
+    units_dict = IMPERIAL_UNITS if is_inch else METRIC_UNITS
     return CeeBucklingResult(
         Pcrl=result["Pcrl"],
         Pcrd=result["Pcrd"],
-        shapes=create_shape_visualization(result),
+        shapes=create_shape_visualization(
+            result, result["Pcrl"], result["Pcrd"], units_dict,
+        ),
         section_properties=extract_section_properties(result),
-        units=IMPERIAL_UNITS if is_inch else METRIC_UNITS,
+        units=units_dict,
     )
 
 

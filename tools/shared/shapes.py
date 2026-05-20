@@ -1,5 +1,9 @@
 """Shape post-processing: backend mode-shape dicts → SVG-ready geometry."""
 
+import base64
+
+import cairosvg
+
 from config import MODE_SHAPE_VISUALIZATION_RATIO, SVG_TARGET_HEIGHT
 
 from .schemas import (
@@ -106,8 +110,85 @@ def _build_svg_geometry(
     return view_box, points, bounds
 
 
-def create_shape_visualization(result: dict) -> ShapeVisualization:
-    """Create shape coordinate data for visualization in engineering units."""
+def render_full_svg(
+    svg: SvgGeometry,
+    Pcrl: float,
+    Pcrd: float,
+    units: dict,
+    *,
+    Pcrl_label: str = "Pcrl",
+    Pcrd_label: str = "Pcrd",
+) -> str:
+    """Assemble polyline pieces into a complete, self-contained <svg> string.
+
+    All annotations (legend) are placed inside the viewBox coordinate space
+    so the legend stays aligned with the section regardless of how the
+    client embeds the SVG. The returned string is a standalone document
+    (with xml declaration + xmlns) ready to drop into markdown verbatim.
+    """
+    force_unit = units.get("force", "")
+    vb = svg.viewBox.split()
+    if len(vb) == 4:
+        vb_xmin = float(vb[0])
+        vb_ymin = float(vb[1])
+        vb_w = float(vb[2])
+        label_x = vb_xmin + vb_w / 2
+        label_y = vb_ymin + 14
+        font_size = max(round(vb_w / 35, 1), 8.0)
+    else:
+        label_x, label_y, font_size = 0, -200, 12
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{svg.viewBox}" '
+        f'preserveAspectRatio="xMidYMid meet" width="500" height="500">\n'
+        '  <style>text{font-family:system-ui,sans-serif}</style>\n'
+        f'  <text x="{label_x}" y="{label_y}" font-size="{font_size}" '
+        'text-anchor="middle" fill="#333">'
+        f'{Pcrl_label} = {Pcrl:.3f} {force_unit}  |  '
+        f'{Pcrd_label} = {Pcrd:.3f} {force_unit}'
+        '</text>\n'
+        f'  <polyline points="{svg.undeformed_points}" fill="none" '
+        'stroke="#888" stroke-width="1" stroke-dasharray="3,3" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        f'  <polyline points="{svg.local_buckling_points}" fill="none" '
+        'stroke="#1f77b4" stroke-width="2" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        f'  <polyline points="{svg.distortional_buckling_points}" fill="none" '
+        'stroke="#d62728" stroke-width="2" '
+        'vector-effect="non-scaling-stroke"/>\n'
+        '</svg>\n'
+    )
+
+
+def _svg_to_png_data_url(svg_str: str, width: int = 600) -> str:
+    """Rasterize SVG → PNG → base64 → ``data:image/png;base64,…`` URL.
+
+    Returned as a data URL so the LLM can embed it directly in a markdown
+    image tag — `![alt](data:image/png;base64,…)` — which Claude Desktop
+    and LibreChat render inline. Avoids both:
+      • MCP ImageContent (Claude Desktop shows it to the model but hides
+        from the chat UI), and
+      • inline `<svg>` HTML in markdown (Claude Desktop renders it as raw
+        text characters, not graphics).
+    """
+    png_bytes = cairosvg.svg2png(
+        bytestring=svg_str.encode("utf-8"),
+        output_width=width,
+    )
+    return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+
+
+def create_shape_visualization(
+    result: dict,
+    Pcrl: float,
+    Pcrd: float,
+    units: dict,
+    *,
+    Pcrl_label: str = "Pcrl",
+    Pcrd_label: str = "Pcrd",
+) -> ShapeVisualization:
+    """Create shape coordinate data + a ready-to-render full SVG."""
     # Undeformed coordinates come from the distortional mode base because it
     # covers the full section perimeter; the local mode only spans the
     # sub-segment (flange + lip) relevant to that mode.
@@ -130,14 +211,22 @@ def create_shape_visualization(result: dict) -> ShapeVisualization:
         (distortional_X, distortional_Y),
     ])
 
+    svg = SvgGeometry(
+        viewBox=view_box,
+        bounds=bounds,
+        undeformed_points=und_pts,
+        local_buckling_points=loc_pts,
+        distortional_buckling_points=dist_pts,
+    )
+
+    svg_str = render_full_svg(
+        svg, Pcrl, Pcrd, units,
+        Pcrl_label=Pcrl_label, Pcrd_label=Pcrd_label,
+    )
+
     return ShapeVisualization(
-        svg=SvgGeometry(
-            viewBox=view_box,
-            bounds=bounds,
-            undeformed_points=und_pts,
-            local_buckling_points=loc_pts,
-            distortional_buckling_points=dist_pts,
-        ),
+        svg=svg,
+        image_data_url=_svg_to_png_data_url(svg_str),
     )
 
 
@@ -166,10 +255,27 @@ def extract_section_properties(result: dict) -> SectionProperties:
 SVG_RENDERING_INSTRUCTIONS = """\
 ## Rendering mode shapes
 
-ALWAYS render mode shapes using `shapes.svg`. The server has already handled
-the Y-axis flip, uniform scaling, padding, and centering.
+**Prefer `shapes.image_data_url`.** It is a pre-rendered PNG (server-side
+SVG→PNG via cairosvg) encoded as a `data:image/png;base64,…` URL, with the
+section centerline, both buckling mode shapes, and the critical-load label
+already positioned inside the viewBox coordinate space.
 
-Never put textbox, labels or legends over the SVG polylines because they may obscure the shapes.
+To show it to the user, emit this markdown verbatim (substitute the field
+value for the URL):
+
+    ![Buckling mode shapes](data:image/png;base64,…)
+
+Do NOT wrap `shapes.image_data_url` in a code block or surround it with
+inline-code backticks — that turns it into displayed text instead of a
+rendered image. Do NOT compose your own SVG from the polyline pieces; the
+label ends up in pixel coordinates while the section is in viewBox
+coordinates, and the legend floats away from the section.
+
+Use the lower-level `shapes.svg.{viewBox, *_points, bounds}` ONLY when you
+need to embed the polylines inside a larger composite figure that the
+data-URL image cannot express. In that case, the server has already handled
+the Y-axis flip, uniform scaling, padding, and centering — never put a
+textbox/legend over the polylines because it can obscure them.
 
 ### Minimal standalone SVG (auto-fits the section)
 

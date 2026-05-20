@@ -100,6 +100,7 @@ def calculate_open_section_buckling(
     }
     result = call_backend(ENDPOINT, payload)
 
+    units_dict = IMPERIAL_UNITS if is_inch else METRIC_UNITS
     return OpenSectionBucklingResult(
         local_buckling_label=result["local_buckling_label"],
         distortional_buckling_label=result["distortional_buckling_label"],
@@ -107,9 +108,12 @@ def calculate_open_section_buckling(
         Lcrd=result["Lcrd"],
         Rcrl=result["Rcrl"],
         Rcrd=result["Rcrd"],
-        shapes=create_shape_visualization(result),
+        shapes=create_shape_visualization(
+            result, result["Rcrl"], result["Rcrd"], units_dict,
+            Pcrl_label="Rcrl", Pcrd_label="Rcrd",
+        ),
         section_properties=extract_section_properties(result),
-        units=IMPERIAL_UNITS if is_inch else METRIC_UNITS,
+        units=units_dict,
     )
 
 
