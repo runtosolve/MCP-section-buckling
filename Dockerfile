@@ -14,6 +14,8 @@ RUN julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 COPY requirements.txt .
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 
-COPY backend.jl server.py ./
+COPY backend.jl server.py config.py ./
+COPY backend ./backend
+COPY tools ./tools
 
 EXPOSE 8000 8081
